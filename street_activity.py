@@ -11,7 +11,6 @@ from common import (
     extract_date,
     find_contexts,
     load_json,
-    maybe_email_failures,
     save_json,
     send_email,
     stable_key,
@@ -74,14 +73,6 @@ def main():
 
     records, failures, stats = crawl(STREET_START_URLS)
 
-    # PDF read/extraction problems stay in the Actions log only. Warning emails
-    # are reserved for failures of non-PDF sources.
-    email_failures = [
-        failure
-        for failure in failures
-        if not failure.get("kind", "").startswith("pdf/document")
-    ]
-
     matched = {}
     changes = []
 
@@ -107,79 +98,54 @@ def main():
         state["items"][key] = item
 
     if not state["initialized"]:
+        # Establish the first baseline silently so old Clark Street material
+        # does not generate a large initial email.
         state["initialized"] = True
-        body = "\n".join(
-            [
-                "NewtonHomeWatch Clark Street monitoring is now initialized.",
-                "",
-                f"Existing Clark Street source records used as baseline: {len(matched)}",
-                "",
-                "Old material has been recorded without being sent as a large",
-                "historical digest. Future Monday/Thursday digests will contain",
-                "only newly discovered or materially changed Clark Street items.",
-                "",
-                f"Readable records inspected: {stats['records_readable']}",
-                f"Non-PDF source failures: {len(email_failures)}",
-            ]
-        )
-        send_email(
-            "[NewtonHomeWatch - Clark Street] Street activity - baseline created",
-            body,
+        print(
+            f"Silent baseline created with {len(matched)} Clark Street record(s).",
+            flush=True,
         )
 
-    else:
-        if changes:
-            subject = (
-                "[NewtonHomeWatch - Clark Street] Street activity - "
-                f"{len(changes)} new/changed item(s)"
-            )
-            lines = [
-                f"NewtonHomeWatch found {len(changes)} new or changed Clark Street",
-                "item(s) since the previous digest.",
-                "",
-            ]
+    elif changes:
+        subject = (
+            "[NewtonHomeWatch - Clark Street] Street activity - "
+            f"{len(changes)} new/changed item(s)"
+        )
+        lines = [
+            f"NewtonHomeWatch found {len(changes)} new or changed Clark Street",
+            "item(s) since the previous digest.",
+            "",
+        ]
 
-            for status, item in changes[:MAX_EMAIL_ITEMS]:
-                lines.append(format_item(item, status))
-                lines.append("")
+        for status, item in changes[:MAX_EMAIL_ITEMS]:
+            lines.append(format_item(item, status))
+            lines.append("")
 
-            if len(changes) > MAX_EMAIL_ITEMS:
-                lines.append(
-                    f"{len(changes) - MAX_EMAIL_ITEMS} additional item(s) are stored "
-                    "in data/street_state.json."
-                )
-        else:
-            subject = (
-                "[NewtonHomeWatch - Clark Street] Street activity - "
-                "no new items"
+        if len(changes) > MAX_EMAIL_ITEMS:
+            lines.append(
+                f"{len(changes) - MAX_EMAIL_ITEMS} additional item(s) are stored "
+                "in data/street_state.json."
             )
-            lines = [
-                "NewtonHomeWatch completed the Clark Street check.",
-                "",
-                "No new or materially changed Clark Street items were found.",
-                "",
-            ]
 
         lines.extend(
             [
                 f"Readable records inspected: {stats['records_readable']}",
                 f"Clark Street source records currently tracked: {len(matched)}",
-                f"Non-PDF source failures: {len(email_failures)}",
             ]
         )
         send_email(subject, "\n".join(lines))
 
+    else:
+        print("No new Clark Street results; no email sent.", flush=True)
+
     state["last_run_utc"] = utc_now_iso()
-    maybe_email_failures("Clark Street digest", email_failures, state)
     save_json(STATE_FILE, state)
 
-    pdf_failures = len(failures) - len(email_failures)
     print("----- CLARK STREET DIGEST -----")
     print(f"Readable records inspected: {stats['records_readable']}")
     print(f"Clark Street matching records: {len(matched)}")
     print(f"New/changed records: {len(changes)}")
-    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
-    print(f"PDF read/extraction failures logged only: {pdf_failures}")
+    print(f"Source/PDF failures logged only: {len(failures)}")
 
 
 if __name__ == "__main__":
