@@ -2,8 +2,8 @@ name: NewtonHomeWatch - Clark Street
 
 on:
   schedule:
-    # Sunday morning (UTC schedule; roughly 9-10am Eastern).
-    - cron: '10 14 * * 0'
+    # Monday and Thursday mornings (UTC schedule; roughly 9-10am Eastern).
+    - cron: '10 14 * * 1,4'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Clark Street weekly digest
+      - name: Run Clark Street digest
         env:
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
