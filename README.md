@@ -1,0 +1,54 @@
+# NewtonHomeWatch
+
+Private home/property monitoring for 162 Clark Street and Clark Street, Newton, MA.
+
+This repository contains three small monitors:
+
+1. **Property Monitor** — runs Monday and Thursday and looks for new or changed official City of Newton material tied specifically to 162 Clark Street (including address variants and parcel/account identifier `62023 0003`).
+2. **Clark Street Digest** — runs Sunday and sends one weekly email containing newly discovered Clark Street activity from the official sources it crawls.
+3. **House History Builder** — runs monthly and appends newly discovered historical records about 162 Clark Street to `data/house_history.json`.
+
+The first version is deliberately rule-based: it extracts relevant nearby text and links back to the original City webpage/PDF. It does **not** use an AI API.
+
+## Email subjects
+
+- `[NewtonHomeWatch - Property] ...`
+- `[NewtonHomeWatch - Clark Street] Weekly street activity`
+- `[NewtonHomeWatch - House History] ...`
+- `[NewtonHomeWatch - Warning] ...` for crawl/read failures
+
+## Sources
+
+The crawler starts from official City of Newton pages covering the Electronic Posting Board, City Council dockets/Friday packets, Planning & Development, Special Permits/Land Use, Zoning Board of Appeals, Inspectional Services, Public Works/Engineering, GIS, Assessing, and Historic Preservation. It follows relevant Newton links and reads linked PDFs.
+
+The City also exposes permit/address search through NewGov/OpenGov and parcel information through Newton GIS/assessor tools. The first release records those official portals as source links but does not yet automate the JavaScript-only address search inside NewGov; that should be added as a dedicated adapter rather than brittle HTML scraping.
+
+## Required GitHub Secrets
+
+In **Settings -> Secrets and variables -> Actions**, create these repository secrets:
+
+- `ALERT_EMAIL_TO` — email address that should receive alerts
+- `SMTP_USER` — Gmail/Google account used to send alerts
+- `SMTP_PASSWORD` — app password used by the existing NewtonSearch mail setup
+
+Secrets from another repository are not automatically shared with this repository.
+
+## Scheduling
+
+GitHub Actions uses UTC. The current schedules are intentionally light:
+
+- Property monitor: Monday + Thursday at 13:05 UTC
+- Clark Street digest: Sunday at 14:10 UTC
+- House history: first Saturday of each month at 14:20 UTC
+
+All workflows can also be run manually from the **Actions** tab.
+
+## First-run behavior
+
+The property and street monitors establish a baseline on their first successful run so you are not flooded with old material. Subsequent runs email only new or materially changed relevant items. The house-history builder is archival, so it records historical matches it discovers.
+
+## Notes
+
+- Digital PDFs are text-extracted with PyMuPDF.
+- Image-only/scanned PDFs are logged as unreadable; OCR is intentionally not enabled in this first version.
+- State files are committed back to the private repository after each run so the monitors remember what they have already seen.
