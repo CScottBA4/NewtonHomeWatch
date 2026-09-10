@@ -8,7 +8,6 @@ from common import (
     extract_date,
     find_contexts,
     load_json,
-    maybe_email_failures,
     portal_links_text,
     save_json,
     send_email,
@@ -106,23 +105,11 @@ def main():
         flush=True,
     )
 
-    # max_pages equals the number of initial URLs. Because all initial URLs are
-    # queued before discovered links, this checks every listed source but does
-    # not recursively wander through the wider Newton website. PDFs linked
-    # directly from these pages are still read.
     records, failures, stats = crawl(
         FOCUSED_PROPERTY_URLS,
         max_pages=len(FOCUSED_PROPERTY_URLS),
         max_pdfs=175,
     )
-
-    # PDF read/extraction problems stay visible in the GitHub Actions log but
-    # do not generate warning emails. Only non-PDF source failures are emailed.
-    email_failures = [
-        failure
-        for failure in failures
-        if not failure.get("kind", "").startswith("pdf/document")
-    ]
 
     matched = {}
     changes = []
@@ -143,44 +130,18 @@ def main():
             elif previous.get("fingerprint") != item["fingerprint"]:
                 changes.append(("CHANGED", item))
 
-    # Update persistent state with everything seen on this run. Older records
-    # are retained if a source is temporarily unavailable.
     for key, item in matched.items():
         first_seen = state["items"].get(key, {}).get("first_seen_utc")
         item["first_seen_utc"] = first_seen or utc_now_iso()
         state["items"][key] = item
 
     if not state["initialized"]:
+        # First run establishes a silent baseline. No email is sent unless a
+        # later run finds a genuinely new or materially changed record.
         state["initialized"] = True
-
-        body = "\n".join(
-            [
-                "NewtonHomeWatch property monitoring is now initialized.",
-                "",
-                "Property: 162 Clark Street, Newton, MA",
-                f"Existing matching official records used as baseline: {len(matched)}",
-                "",
-                "Old material has been recorded without generating individual alerts.",
-                "Future runs will email only newly discovered or materially changed",
-                "property-related records.",
-                "",
-                "Coverage note: this monitor is intentionally focused on permit,",
-                "assessor/GIS, planning/zoning, historic-preservation and property-",
-                "infrastructure sources. NewtonSearch separately performs the broad",
-                "recursive City-document crawl for 162 Clark Street and Clark Street,",
-                "so removing that duplicate crawl here does not remove that coverage.",
-                "",
-                f"Exact source pages inspected: {stats['visited_pages']}",
-                f"Readable pages/documents inspected: {stats['records_readable']}",
-                f"Non-PDF source failures: {len(email_failures)}",
-                "",
-                portal_links_text(),
-            ]
-        )
-
-        send_email(
-            "[NewtonHomeWatch - Property] 162 Clark Street baseline created",
-            body,
+        print(
+            f"Silent baseline created with {len(matched)} matching record(s).",
+            flush=True,
         )
 
     elif changes:
@@ -212,41 +173,17 @@ def main():
         send_email(subject, "\n".join(lines))
 
     else:
-        body = "\n".join(
-            [
-                "NewtonHomeWatch completed the scheduled focused property check.",
-                "",
-                "No new or materially changed records tied to 162 Clark Street",
-                "were found in the property-focused official sources inspected.",
-                "",
-                f"Exact source pages inspected: {stats['visited_pages']}",
-                f"Readable pages/documents inspected: {stats['records_readable']}",
-                f"Property-matching records currently tracked: {len(matched)}",
-                f"Non-PDF source failures: {len(email_failures)}",
-                "",
-                "General Newton City documents continue to be monitored separately",
-                "by NewtonSearch, so they are not redundantly crawled here.",
-                "",
-                portal_links_text(),
-            ]
-        )
-        send_email(
-            "[NewtonHomeWatch - Property] No new 162 Clark Street updates",
-            body,
-        )
+        print("No new property results; no email sent.", flush=True)
 
     state["last_run_utc"] = utc_now_iso()
-    maybe_email_failures("Property monitor", email_failures, state)
     save_json(STATE_FILE, state)
 
-    pdf_failures = len(failures) - len(email_failures)
     print("----- PROPERTY MONITOR -----")
     print(f"Exact source pages inspected: {stats['visited_pages']}")
     print(f"Readable pages/documents inspected: {stats['records_readable']}")
     print(f"Property-matching records: {len(matched)}")
     print(f"New/changed records: {len(changes)}")
-    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
-    print(f"PDF read/extraction failures logged only: {pdf_failures}")
+    print(f"Source/PDF failures logged only: {len(failures)}")
 
 
 if __name__ == "__main__":
