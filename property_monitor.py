@@ -116,6 +116,14 @@ def main():
         max_pdfs=175,
     )
 
+    # PDF read/extraction problems stay visible in the GitHub Actions log but
+    # do not generate warning emails. Only non-PDF source failures are emailed.
+    email_failures = [
+        failure
+        for failure in failures
+        if not failure.get("kind", "").startswith("pdf/document")
+    ]
+
     matched = {}
     changes = []
 
@@ -164,7 +172,7 @@ def main():
                 "",
                 f"Exact source pages inspected: {stats['visited_pages']}",
                 f"Readable pages/documents inspected: {stats['records_readable']}",
-                f"Source failures: {stats['failures']}",
+                f"Non-PDF source failures: {len(email_failures)}",
                 "",
                 portal_links_text(),
             ]
@@ -214,7 +222,7 @@ def main():
                 f"Exact source pages inspected: {stats['visited_pages']}",
                 f"Readable pages/documents inspected: {stats['records_readable']}",
                 f"Property-matching records currently tracked: {len(matched)}",
-                f"Source failures: {stats['failures']}",
+                f"Non-PDF source failures: {len(email_failures)}",
                 "",
                 "General Newton City documents continue to be monitored separately",
                 "by NewtonSearch, so they are not redundantly crawled here.",
@@ -228,15 +236,17 @@ def main():
         )
 
     state["last_run_utc"] = utc_now_iso()
-    maybe_email_failures("Property monitor", failures, state)
+    maybe_email_failures("Property monitor", email_failures, state)
     save_json(STATE_FILE, state)
 
+    pdf_failures = len(failures) - len(email_failures)
     print("----- PROPERTY MONITOR -----")
     print(f"Exact source pages inspected: {stats['visited_pages']}")
     print(f"Readable pages/documents inspected: {stats['records_readable']}")
     print(f"Property-matching records: {len(matched)}")
     print(f"New/changed records: {len(changes)}")
-    print(f"Failures: {len(failures)}")
+    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
+    print(f"PDF read/extraction failures logged only: {pdf_failures}")
 
 
 if __name__ == "__main__":
