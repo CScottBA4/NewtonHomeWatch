@@ -73,6 +73,14 @@ def main():
         max_pdfs=600,
     )
 
+    # PDF read/extraction problems remain visible in the GitHub Actions log but
+    # do not generate warning emails. Non-PDF source failures can still alert.
+    email_failures = [
+        failure
+        for failure in failures
+        if not failure.get("kind", "").startswith("pdf/document")
+    ]
+
     added = []
 
     for record in records:
@@ -123,7 +131,7 @@ def main():
                 "",
                 f"Total archived records: {len(history['records'])}",
                 f"Readable records inspected: {stats['records_readable']}",
-                f"Source failures: {stats['failures']}",
+                f"Non-PDF source failures: {len(email_failures)}",
                 "",
                 portal_links_text(),
             ]
@@ -133,14 +141,16 @@ def main():
             body,
         )
 
-    maybe_email_failures("House history builder", failures, history)
+    maybe_email_failures("House history builder", email_failures, history)
     save_json(HISTORY_FILE, history)
 
+    pdf_failures = len(failures) - len(email_failures)
     print("----- HOUSE HISTORY BUILDER -----")
     print(f"Readable records inspected: {stats['records_readable']}")
     print(f"Historical records added: {len(added)}")
     print(f"Total history records: {len(history['records'])}")
-    print(f"Failures: {len(failures)}")
+    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
+    print(f"PDF read/extraction failures logged only: {pdf_failures}")
 
 
 if __name__ == "__main__":
