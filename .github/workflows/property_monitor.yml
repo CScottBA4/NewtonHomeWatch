@@ -1,0 +1,51 @@
+name: NewtonHomeWatch - Property
+
+on:
+  schedule:
+    # Monday and Thursday mornings (UTC schedule; roughly 8-9am Eastern).
+    - cron: '5 13 * * 1,4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: newtonhomewatch-state
+  cancel-in-progress: false
+
+jobs:
+  property-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run 162 Clark Street property monitor
+        env:
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: python property_monitor.py
+
+      - name: Commit monitor state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add data/property_state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update NewtonHomeWatch property state"
+            git pull --rebase origin main
+            git push
+          else
+            echo "No property-state changes to commit"
+          fi
