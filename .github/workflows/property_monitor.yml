@@ -1,6 +1,10 @@
 name: NewtonHomeWatch - Property
 
 on:
+  # Temporary push trigger used to test the workflow immediately.
+  push:
+    branches:
+      - main
   schedule:
     # Daily morning run (UTC schedule; roughly 8-9am Eastern).
     - cron: '5 13 * * *'
