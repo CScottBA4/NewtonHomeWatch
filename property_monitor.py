@@ -1,6 +1,5 @@
 from common import (
     MAX_EMAIL_ITEMS,
-    PROPERTY_START_URLS,
     PROPERTY_TERMS,
     classify_record,
     clean_excerpt,
@@ -18,6 +17,42 @@ from common import (
 )
 
 STATE_FILE = "data/property_state.json"
+
+# Deliberately focused list. NewtonSearch remains the broad recursive city-
+# document crawler, so this monitor does not need to walk hundreds of unrelated
+# City pages every day. It checks the property/permit/assessor/GIS systems and
+# a small set of current-document pages as a safety net. Linked PDFs from these
+# exact pages are still inspected.
+FOCUSED_PROPERTY_URLS = [
+    # Permitting / Inspectional Services
+    "https://www.newtonma.gov/government/newgov-permitting",
+    "https://www.newtonma.gov/government/inspectional-services/online-permitting",
+    "https://www.newtonma.gov/government/inspectional-services/online-permit-history-lookup",
+    "https://www.newtonma.gov/government/inspectional-services/building-permit-summary-report",
+
+    # Parcel / assessor / GIS
+    "https://www.newtonma.gov/government/assessing/assessor-s-database",
+    "https://www.newtonma.gov/government/information-technology/gis",
+
+    # Planning / zoning / property review
+    "https://www.newtonma.gov/government/planning/development-projects",
+    "https://www.newtonma.gov/government/planning/development-review/special-permits-land-use",
+    "https://www.newtonma.gov/government/planning/zoning-board-of-appeals",
+    "https://www.newtonma.gov/government/planning/online-applications",
+    "https://www.newtonma.gov/government/planning/historic-preservation",
+
+    # Property-frontage / infrastructure permits
+    "https://www.newtonma.gov/government/dpw-permits",
+    "https://www.newtonma.gov/government/public-works/engineering",
+
+    # Small safety net for current city material. NewtonSearch does the full
+    # recursive crawl of these systems; here we inspect only these exact pages
+    # and their directly linked PDFs.
+    "https://www.newtonma.gov/government/city-clerk/city-council/electronic-posting-board",
+    "https://www.newtonma.gov/how-do-i/view/city-council-dockets",
+    "https://apps.newtonma.gov/apps/dockets/search.php",
+    "https://www.newtonma.gov/government/city-clerk/city-council/friday-packet",
+]
 
 
 def default_state():
@@ -64,7 +99,22 @@ def format_item(item, status):
 def main():
     state = load_json(STATE_FILE, default_state())
 
-    records, failures, stats = crawl(PROPERTY_START_URLS)
+    print("Property monitor mode: focused property sources + current-document safety net", flush=True)
+    print(
+        f"Checking {len(FOCUSED_PROPERTY_URLS)} exact source pages; "
+        "recursive general-site crawling is left to NewtonSearch.",
+        flush=True,
+    )
+
+    # max_pages equals the number of initial URLs. Because all initial URLs are
+    # queued before discovered links, this checks every listed source but does
+    # not recursively wander through the wider Newton website. PDFs linked
+    # directly from these pages are still read.
+    records, failures, stats = crawl(
+        FOCUSED_PROPERTY_URLS,
+        max_pages=len(FOCUSED_PROPERTY_URLS),
+        max_pdfs=175,
+    )
 
     matched = {}
     changes = []
@@ -106,7 +156,14 @@ def main():
                 "Future runs will email only newly discovered or materially changed",
                 "property-related records.",
                 "",
-                f"Readable records inspected: {stats['records_readable']}",
+                "Coverage note: this monitor is intentionally focused on permit,",
+                "assessor/GIS, planning/zoning, historic-preservation and property-",
+                "infrastructure sources. NewtonSearch separately performs the broad",
+                "recursive City-document crawl for 162 Clark Street and Clark Street,",
+                "so removing that duplicate crawl here does not remove that coverage.",
+                "",
+                f"Exact source pages inspected: {stats['visited_pages']}",
+                f"Readable pages/documents inspected: {stats['records_readable']}",
                 f"Source failures: {stats['failures']}",
                 "",
                 portal_links_text(),
@@ -149,14 +206,18 @@ def main():
     else:
         body = "\n".join(
             [
-                "NewtonHomeWatch completed the scheduled property check.",
+                "NewtonHomeWatch completed the scheduled focused property check.",
                 "",
                 "No new or materially changed records tied to 162 Clark Street",
-                "were found in the official sources inspected.",
+                "were found in the property-focused official sources inspected.",
                 "",
-                f"Readable records inspected: {stats['records_readable']}",
+                f"Exact source pages inspected: {stats['visited_pages']}",
+                f"Readable pages/documents inspected: {stats['records_readable']}",
                 f"Property-matching records currently tracked: {len(matched)}",
                 f"Source failures: {stats['failures']}",
+                "",
+                "General Newton City documents continue to be monitored separately",
+                "by NewtonSearch, so they are not redundantly crawled here.",
                 "",
                 portal_links_text(),
             ]
@@ -171,7 +232,8 @@ def main():
     save_json(STATE_FILE, state)
 
     print("----- PROPERTY MONITOR -----")
-    print(f"Readable records inspected: {stats['records_readable']}")
+    print(f"Exact source pages inspected: {stats['visited_pages']}")
+    print(f"Readable pages/documents inspected: {stats['records_readable']}")
     print(f"Property-matching records: {len(matched)}")
     print(f"New/changed records: {len(changes)}")
     print(f"Failures: {len(failures)}")
