@@ -2,8 +2,8 @@ name: NewtonHomeWatch - Property
 
 on:
   schedule:
-    # Monday and Thursday mornings (UTC schedule; roughly 8-9am Eastern).
-    - cron: '5 13 * * 1,4'
+    # Daily morning run (UTC schedule; roughly 8-9am Eastern).
+    - cron: '5 13 * * *'
   workflow_dispatch:
 
 permissions:
