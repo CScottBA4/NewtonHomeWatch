@@ -19,6 +19,7 @@ ALLOWED_NEWTON_HOSTS = {
     "newtonma.gov",
     "www.newtonma.gov",
     "apps2.newtonma.gov",
+    "apps.newtonma.gov",
     "gisweb.newtonma.gov",
 }
 
@@ -82,6 +83,7 @@ PROPERTY_START_URLS = [
     "https://www.newtonma.gov/government/city-clerk/city-council/electronic-posting-board",
     "https://www.newtonma.gov/government/city-clerk/city-council",
     "https://www.newtonma.gov/how-do-i/view/city-council-dockets",
+    "https://apps.newtonma.gov/apps/dockets/",
     "https://www.newtonma.gov/government/city-clerk/city-council/friday-packet",
     "https://www.newtonma.gov/government/planning",
     "https://www.newtonma.gov/government/planning/development-projects",
@@ -96,6 +98,7 @@ PROPERTY_START_URLS = [
 STREET_START_URLS = [
     "https://www.newtonma.gov/government/city-clerk/city-council/electronic-posting-board",
     "https://www.newtonma.gov/how-do-i/view/city-council-dockets",
+    "https://apps.newtonma.gov/apps/dockets/",
     "https://www.newtonma.gov/government/city-clerk/city-council/friday-packet",
     "https://www.newtonma.gov/government/city-clerk/city-council/calendar-news/calendar",
     "https://www.newtonma.gov/government/planning",
@@ -112,6 +115,7 @@ HISTORY_START_URLS = [
     "https://www.newtonma.gov/Home/Components/ServiceDirectory/ServiceDirectory/28/",
     "https://www.newtonma.gov/government/city-clerk/city-council/friday-packet",
     "https://www.newtonma.gov/how-do-i/view/city-council-dockets",
+    "https://apps.newtonma.gov/apps/dockets/",
     "https://www.newtonma.gov/government/planning/development-review/special-permits-land-use",
 ]
 
