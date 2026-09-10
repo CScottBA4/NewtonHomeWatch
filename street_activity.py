@@ -74,6 +74,14 @@ def main():
 
     records, failures, stats = crawl(STREET_START_URLS)
 
+    # PDF read/extraction problems stay in the Actions log only. Warning emails
+    # are reserved for failures of non-PDF sources.
+    email_failures = [
+        failure
+        for failure in failures
+        if not failure.get("kind", "").startswith("pdf/document")
+    ]
+
     matched = {}
     changes = []
 
@@ -107,27 +115,27 @@ def main():
                 f"Existing Clark Street source records used as baseline: {len(matched)}",
                 "",
                 "Old material has been recorded without being sent as a large",
-                "historical digest. Starting next Sunday, the digest will contain",
+                "historical digest. Future Monday/Thursday digests will contain",
                 "only newly discovered or materially changed Clark Street items.",
                 "",
                 f"Readable records inspected: {stats['records_readable']}",
-                f"Source failures: {stats['failures']}",
+                f"Non-PDF source failures: {len(email_failures)}",
             ]
         )
         send_email(
-            "[NewtonHomeWatch - Clark Street] Weekly street activity - baseline created",
+            "[NewtonHomeWatch - Clark Street] Street activity - baseline created",
             body,
         )
 
     else:
         if changes:
             subject = (
-                "[NewtonHomeWatch - Clark Street] Weekly street activity - "
+                "[NewtonHomeWatch - Clark Street] Street activity - "
                 f"{len(changes)} new/changed item(s)"
             )
             lines = [
                 f"NewtonHomeWatch found {len(changes)} new or changed Clark Street",
-                "item(s) since the previous weekly digest.",
+                "item(s) since the previous digest.",
                 "",
             ]
 
@@ -142,11 +150,11 @@ def main():
                 )
         else:
             subject = (
-                "[NewtonHomeWatch - Clark Street] Weekly street activity - "
+                "[NewtonHomeWatch - Clark Street] Street activity - "
                 "no new items"
             )
             lines = [
-                "NewtonHomeWatch completed the weekly Clark Street check.",
+                "NewtonHomeWatch completed the Clark Street check.",
                 "",
                 "No new or materially changed Clark Street items were found.",
                 "",
@@ -156,20 +164,22 @@ def main():
             [
                 f"Readable records inspected: {stats['records_readable']}",
                 f"Clark Street source records currently tracked: {len(matched)}",
-                f"Source failures: {stats['failures']}",
+                f"Non-PDF source failures: {len(email_failures)}",
             ]
         )
         send_email(subject, "\n".join(lines))
 
     state["last_run_utc"] = utc_now_iso()
-    maybe_email_failures("Clark Street weekly digest", failures, state)
+    maybe_email_failures("Clark Street digest", email_failures, state)
     save_json(STATE_FILE, state)
 
+    pdf_failures = len(failures) - len(email_failures)
     print("----- CLARK STREET DIGEST -----")
     print(f"Readable records inspected: {stats['records_readable']}")
     print(f"Clark Street matching records: {len(matched)}")
     print(f"New/changed records: {len(changes)}")
-    print(f"Failures: {len(failures)}")
+    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
+    print(f"PDF read/extraction failures logged only: {pdf_failures}")
 
 
 if __name__ == "__main__":
