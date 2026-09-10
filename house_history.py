@@ -9,7 +9,6 @@ from common import (
     extract_date,
     find_contexts,
     load_json,
-    maybe_email_failures,
     portal_links_text,
     save_json,
     send_email,
@@ -73,14 +72,6 @@ def main():
         max_pdfs=600,
     )
 
-    # PDF read/extraction problems remain visible in the GitHub Actions log but
-    # do not generate warning emails. Non-PDF source failures can still alert.
-    email_failures = [
-        failure
-        for failure in failures
-        if not failure.get("kind", "").startswith("pdf/document")
-    ]
-
     added = []
 
     for record in records:
@@ -122,35 +113,15 @@ def main():
         lines.extend(["", portal_links_text()])
         send_email(subject, "\n".join(lines))
     else:
-        body = "\n".join(
-            [
-                "NewtonHomeWatch completed the monthly house-history search.",
-                "",
-                "No newly discovered historical records for 162 Clark Street",
-                "were found in the official sources inspected this month.",
-                "",
-                f"Total archived records: {len(history['records'])}",
-                f"Readable records inspected: {stats['records_readable']}",
-                f"Non-PDF source failures: {len(email_failures)}",
-                "",
-                portal_links_text(),
-            ]
-        )
-        send_email(
-            "[NewtonHomeWatch - House History] No new historical records this month",
-            body,
-        )
+        print("No new historical records; no email sent.", flush=True)
 
-    maybe_email_failures("House history builder", email_failures, history)
     save_json(HISTORY_FILE, history)
 
-    pdf_failures = len(failures) - len(email_failures)
     print("----- HOUSE HISTORY BUILDER -----")
     print(f"Readable records inspected: {stats['records_readable']}")
     print(f"Historical records added: {len(added)}")
     print(f"Total history records: {len(history['records'])}")
-    print(f"Non-PDF failures eligible for warning email: {len(email_failures)}")
-    print(f"PDF read/extraction failures logged only: {pdf_failures}")
+    print(f"Source/PDF failures logged only: {len(failures)}")
 
 
 if __name__ == "__main__":
